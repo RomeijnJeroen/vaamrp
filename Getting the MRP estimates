@@ -1,0 +1,151 @@
+#Running the MRP estimates
+
+rm(list=ls())
+
+#Working directory
+setwd("~/Dropbox/Public opinion vs party supporters copy/Data/")
+
+#Library 
+library(foreign)
+library(readstata13)
+library(arm)
+
+#function for sums ignoring NAs
+sum.na<-function (x) {sum(x, na.rm=T)}
+
+##GERMANY ##
+
+# Load public opinion data
+podata <- read.dta13("survey2013.dta")
+
+# Prepare public opinion data
+# Outcome variable
+podata$id203 <- ifelse(podata$V203=="eigene W<e4>hrung eher gut", 1,0)
+podata$id250 <- ifelse(podata$V250=="gut", 1,0)
+podata$id205<- ifelse(podata$V205=="T<fc>rkei in EU aufnehmen", 1,0)
+podata$id373 <- ifelse(podata$V373=="sollte Tempolimit geben", 1,0)
+podata$id339 <- ifelse(podata$V339=="sollten Ehepartner gleichgestellt werden", 1,0)
+
+
+# Factor
+podata$party <- as.factor(podata$party)
+podata$age <- as.factor(podata$age)
+podata$edu <- as.factor(podata$edu)
+podata$sex <- as.factor(podata$sex)
+
+# Multilevel id203 (euro)
+mid203 <- glmer(id203~(1|party)+(1|age)+(1|sex)+(1|edu), family=binomial(link="logit"), data=podata)
+summary(mid203)
+ranef(mid203)
+fixef(mid203)
+
+# Multilevel id250 (top income rate)
+mid250 <- glmer(id250~(1|party)+(1|age)+(1|sex)+(1|edu), family=binomial(link="logit"), data=podata)
+summary(mid250)
+ranef(mid250)
+fixef(mid250)
+
+# Multilevel id205 (Turkey in EU)
+mid205 <- glmer(id205~(1|party)+(1|age)+(1|sex)+(1|edu), family=binomial(link="logit"), data=podata)
+summary(mid205)
+ranef(mid205)
+fixef(mid205)
+
+# Multilevel id373 (speed limits)
+mid373 <- glmer(id373~(1|party)+(1|age)+(1|sex)+(1|edu), family=binomial(link="logit"), data=podata)
+summary(mid373)
+ranef(mid373)
+fixef(mid373)
+
+# Multilevel id339 (adoption same-sex couples)
+mid339 <- glmer(id339~(1|party)+(1|age)+(1|sex)+(1|edu), family=binomial(link="logit"), data=podata)
+summary(mid339)
+ranef(mid339)
+fixef(mid339)
+
+#Load zensus data
+census2013 <- read.dta13("census2013.dta")
+
+# Factor
+census2013$party <- as.factor(census2013$party)
+census2013$age <- as.factor(census2013$age)
+census2013$edu <- as.factor(census2013$edu)
+census2013$sex <- as.factor(census2013$sex)
+
+# Obtain the predictions from model id203
+census2013$cellpredid203 <- invlogit(fixef(mid203)["(Intercept)"]
+                                    +ranef(mid203)$party[as.character(census2013$party),1]
+                                    +ranef(mid203)$age[as.character(census2013$age),1]
+                                    +ranef(mid203)$sex[as.character(census2013$sex),1]
+                                    +ranef(mid203)$edu[as.character(census2013$edu),1]
+)
+
+# Obtain the predictions from model id250
+census2013$cellpredid250 <- invlogit(fixef(mid250)["(Intercept)"]
+                                    +ranef(mid250)$party[as.character(census2013$party),1]
+                                    +ranef(mid250)$age[as.character(census2013$age),1]
+                                    +ranef(mid250)$sex[as.character(census2013$sex),1]
+                                    +ranef(mid250)$edu[as.character(census2013$edu),1]
+)
+
+# Obtain the predictions from model id205
+census2013$cellpredid205<- invlogit(fixef(mid205)["(Intercept)"]
+                                   +ranef(mid205)$party[as.character(census2013$party),1]
+                                   +ranef(mid205)$age[as.character(census2013$age),1]
+                                   +ranef(mid205)$sex[as.character(census2013$sex),1]
+                                   +ranef(mid205)$edu[as.character(census2013$edu),1]
+)
+
+# Obtain the predictions from model id373
+census2013$cellpredid373<- invlogit(fixef(mid373)["(Intercept)"]
+                                   +ranef(mid373)$party[as.character(census2013$party),1]
+                                   +ranef(mid373)$age[as.character(census2013$age),1]
+                                   +ranef(mid373)$sex[as.character(census2013$sex),1]
+                                   +ranef(mid373)$edu[as.character(census2013$edu),1]
+)
+
+# Obtain the predictions from model id339
+census2013$cellpredid339<- invlogit(fixef(mid339)["(Intercept)"]
+                                   +ranef(mid339)$party[as.character(census2013$party),1]
+                                   +ranef(mid339)$age[as.character(census2013$age),1]
+                                   +ranef(mid339)$sex[as.character(census2013$sex),1]
+                                   +ranef(mid339)$edu[as.character(census2013$edu),1]
+)
+
+# Calculate the weighted prediction          
+census2013$wpredid203<-census2013$share*census2013$cellpredid203
+census2013$wpredid250<-census2013$share*census2013$cellpredid250
+census2013$wpredid205<-census2013$share*census2013$cellpredid205
+census2013$wpredid373<-census2013$share*census2013$cellpredid373
+census2013$wpredid339<-census2013$share*census2013$cellpredid339
+
+party <- c(1,2,5,6,7)
+
+# Get the party predictions
+partypred <- as.vector(tapply(census2013$wpredid203,census2013$party,sum.na))
+id203 <- as.data.frame(cbind(party,partypred,203))
+
+# Get the party predictions
+partypred <- as.vector(tapply(census2013$wpredid250,census2013$party,sum.na))
+id250 <- as.data.frame(cbind(party,partypred,250))
+
+# Get the party predictions
+partypred <- as.vector(tapply(census2013$wpredid205,census2013$party,sum.na))
+id205 <- as.data.frame(cbind(party,partypred,205))
+
+# Get the party predictions
+partypred <- as.vector(tapply(census2013$wpredid373,census2013$party,sum.na))
+id373 <- as.data.frame(cbind(party,partypred,373))
+
+# Get the party predictions
+partypred <- as.vector(tapply(census2013$wpredid339,census2013$party,sum.na))
+id339 <- as.data.frame(cbind(party,partypred,339))
+
+mrp2013 <- as.data.frame(rbind(id203,id250,id205,id373,id339))
+save(mrp2013, file="mrp2013.RData")
+
+
+## NETHERLANDS ##
+
+
+## SWEDEN ##
