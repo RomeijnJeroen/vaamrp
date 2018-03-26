@@ -8,6 +8,7 @@ rm(list=ls())
 library(foreign)
 library(readstata13)
 library(arm)
+library(MASS)
 
 #function for sums ignoring NAs
 sum.na<-function (x) {sum(x, na.rm=T)}
@@ -17,6 +18,8 @@ sum.na<-function (x) {sum(x, na.rm=T)}
 ############################################################
 setwd("~/Dropbox/VAA/data/Germany")
 
+
+######### Excluding Don't knows ############
 
 # Load public opinion data
 podata <- read.dta13("survey2013.dta")
@@ -158,13 +161,161 @@ mrpDE$partyname <- ifelse(mrpDE$party==7,"Linke", mrpDE$partyname)
 save(mrpDE, file="mrpDE.RData")
 
 
+######### Including Don't knows ############
+
+# Load public opinion data
+podata <- read.dta13("survey2013.dta")
+
+# Prepare public opinion data
+# Outcome variable
+podata$id203 <- ifelse(podata$V203dk== 1, 1,0)
+podata$id250 <- ifelse(podata$V250dk== 1, 1,0)
+podata$id205<- ifelse(podata$V205dk== 1, 1,0)
+podata$id373 <- ifelse(podata$V373dk==1, 1,0)
+podata$id339 <- ifelse(podata$V339dk==1, 1,0)
+
+
+# Factor
+podata$party <- as.factor(podata$party)
+podata$age <- as.factor(podata$age)
+podata$edu <- as.factor(podata$edu)
+podata$sex <- as.factor(podata$sex)
+
+# Multilevel id203 (euro)
+mid203 <- glmer(id203~(1|party)+(1|age)+(1|sex)+(1|edu), family=binomial(link="logit"), data=podata)
+summary(mid203)
+ranef(mid203)
+fixef(mid203)
+
+# Multilevel id250 (top income rate)
+mid250 <- glmer(id250~(1|party)+(1|age)+(1|sex)+(1|edu), family=binomial(link="logit"), data=podata)
+summary(mid250)
+ranef(mid250)
+fixef(mid250)
+
+# Multilevel id205 (Turkey in EU)
+mid205 <- glmer(id205~(1|party)+(1|age)+(1|sex)+(1|edu), family=binomial(link="logit"), data=podata)
+summary(mid205)
+ranef(mid205)
+fixef(mid205)
+
+# Multilevel id373 (speed limits)
+mid373 <- glmer(id373~(1|party)+(1|age)+(1|sex)+(1|edu), family=binomial(link="logit"), data=podata)
+summary(mid373)
+ranef(mid373)
+fixef(mid373)
+
+# Multilevel id339 (adoption same-sex couples)
+mid339 <- glmer(id339~(1|party)+(1|age)+(1|sex)+(1|edu), family=binomial(link="logit"), data=podata)
+summary(mid339)
+ranef(mid339)
+fixef(mid339)
+
+#Load zensus data
+census2013 <- read.dta13("census2013.dta")
+
+# Factor
+census2013$party <- as.factor(census2013$party)
+census2013$age <- as.factor(census2013$age)
+census2013$edu <- as.factor(census2013$edu)
+census2013$sex <- as.factor(census2013$sex)
+
+# Obtain the predictions from model id203
+census2013$cellpredid203 <- invlogit(fixef(mid203)["(Intercept)"]
+                                     +ranef(mid203)$party[as.character(census2013$party),1]
+                                     +ranef(mid203)$age[as.character(census2013$age),1]
+                                     +ranef(mid203)$sex[as.character(census2013$sex),1]
+                                     +ranef(mid203)$edu[as.character(census2013$edu),1]
+)
+
+# Obtain the predictions from model id250
+census2013$cellpredid250 <- invlogit(fixef(mid250)["(Intercept)"]
+                                     +ranef(mid250)$party[as.character(census2013$party),1]
+                                     +ranef(mid250)$age[as.character(census2013$age),1]
+                                     +ranef(mid250)$sex[as.character(census2013$sex),1]
+                                     +ranef(mid250)$edu[as.character(census2013$edu),1]
+)
+
+# Obtain the predictions from model id205
+census2013$cellpredid205<- invlogit(fixef(mid205)["(Intercept)"]
+                                    +ranef(mid205)$party[as.character(census2013$party),1]
+                                    +ranef(mid205)$age[as.character(census2013$age),1]
+                                    +ranef(mid205)$sex[as.character(census2013$sex),1]
+                                    +ranef(mid205)$edu[as.character(census2013$edu),1]
+)
+
+# Obtain the predictions from model id373
+census2013$cellpredid373<- invlogit(fixef(mid373)["(Intercept)"]
+                                    +ranef(mid373)$party[as.character(census2013$party),1]
+                                    +ranef(mid373)$age[as.character(census2013$age),1]
+                                    +ranef(mid373)$sex[as.character(census2013$sex),1]
+                                    +ranef(mid373)$edu[as.character(census2013$edu),1]
+)
+
+# Obtain the predictions from model id339
+census2013$cellpredid339<- invlogit(fixef(mid339)["(Intercept)"]
+                                    +ranef(mid339)$party[as.character(census2013$party),1]
+                                    +ranef(mid339)$age[as.character(census2013$age),1]
+                                    +ranef(mid339)$sex[as.character(census2013$sex),1]
+                                    +ranef(mid339)$edu[as.character(census2013$edu),1]
+)
+
+# Calculate the weighted prediction          
+census2013$wpredid203<-census2013$share*census2013$cellpredid203
+census2013$wpredid250<-census2013$share*census2013$cellpredid250
+census2013$wpredid205<-census2013$share*census2013$cellpredid205
+census2013$wpredid373<-census2013$share*census2013$cellpredid373
+census2013$wpredid339<-census2013$share*census2013$cellpredid339
+
+party <- c(1,2,5,6,7)
+
+# Get the party predictions
+mrppreddk <- as.vector(tapply(census2013$wpredid203,census2013$party,sum.na))
+id203 <- as.data.frame(mrppreddk)
+
+# Get the party predictions
+mrppreddk <- as.vector(tapply(census2013$wpredid250,census2013$party,sum.na))
+id250 <- as.data.frame(mrppreddk)
+
+# Get the party predictions
+mrppreddk <- as.vector(tapply(census2013$wpredid205,census2013$party,sum.na))
+id205 <- as.data.frame(mrppreddk)
+
+# Get the party predictions
+mrppreddk <- as.vector(tapply(census2013$wpredid373,census2013$party,sum.na))
+id373 <- as.data.frame(mrppreddk)
+
+# Get the party predictions
+mrppreddk <- as.vector(tapply(census2013$wpredid339,census2013$party,sum.na))
+id339 <- as.data.frame(mrppreddk)
+
+mrpDEdk <- as.data.frame(rbind(id203,id250,id205,id373,id339))
+
+######### Merge, clean and save ############
+
+mrpDE <-cbind(mrpDE, mrpDEdk)
+
+mrpDE$country <- 'DE'
+colnames(mrpDE)[3] <- 'policyid'
+colnames(mrpDE)[4] <- 'policyname'
+mrpDE$partyname <- ifelse(mrpDE$party==1,"SPD", NA)
+mrpDE$partyname <- ifelse(mrpDE$party==2,"CDUCSU", mrpDE$partyname)
+mrpDE$partyname <- ifelse(mrpDE$party==5,"FPD", mrpDE$partyname)
+mrpDE$partyname <- ifelse(mrpDE$party==6,"Gruene", mrpDE$partyname)
+mrpDE$partyname <- ifelse(mrpDE$party==7,"Linke", mrpDE$partyname)
+
+save(mrpDE, file="mrpDE.RData")
+
+
 ############################################################
 #NETHERLANDS
 ############################################################
 
-# NKO: select the right survey items and recode them.
+# NKO: select the right survey items .
 setwd("~/Dropbox/VAA/data/NL")
 podata <- read.dta13("survey2012.dta")
+
+######### Excluding Don't knows ############
 
 
 # Factor
@@ -303,6 +454,153 @@ id302 <- as.data.frame(cbind(party,mrppred,302, 'cut unemployment benefits'))
 
 mrpNL <- as.data.frame(rbind(id140,id114,id138,id116,id321,id302))
 
+
+######### Including Don't knows ############
+
+setwd("~/Dropbox/VAA/data/NL")
+podata <- read.dta13("survey2012.dta")
+
+# Factor
+podata$party <- as.factor(podata$party)
+podata$age <- as.factor(podata$age)
+podata$edu <- as.factor(podata$edu)
+podata$sex <- as.factor(podata$sex)
+
+# Multilevel id140 (Keeping the pension age at 65)
+mid140 <- glmer(V140dk~(1|party)+(1|age)+(1|sex)+(1|edu), family=binomial(link="logit"), data=podata)
+summary(mid140)
+ranef(mid140)
+fixef(mid140)
+
+# Multilevel id114 (tougher punishment (crime)
+mid114 <- glmer(V114dk~(1|party)+(1|age)+(1|sex)+(1|edu), family=binomial(link="logit"), data=podata)
+summary(mid114)
+ranef(mid114)
+fixef(mid114)
+
+# Multilevel id205 (abolish hypotheekrenteaftrek)
+mid138 <- glmer(V138dk~(1|party)+(1|age)+(1|sex)+(1|edu), family=binomial(link="logit"), data=podata)
+summary(mid138)
+ranef(mid138)
+fixef(mid138)
+
+# Multilevel id116 (building nuclear power plants)
+mid116 <- glmer(V116dk~(1|party)+(1|age)+(1|sex)+(1|edu), family=binomial(link="logit"), data=podata)
+summary(mid116)
+ranef(mid116)
+fixef(mid116)
+
+# Multilevel id321 (turkey never a member of the EU)
+mid321 <- glmer(V321dk~(1|party)+(1|age)+(1|sex)+(1|edu), family=binomial(link="logit"), data=podata)
+summary(mid321)
+ranef(mid321)
+fixef(mid321)
+
+# Multilevel id302 (Cutting costs on unemployment benefits)
+mid302 <- glmer(V302dk~(1|party)+(1|age)+(1|sex)+(1|edu), family=binomial(link="logit"), data=podata)
+summary(mid302)
+ranef(mid302)
+fixef(mid302)
+
+#Load zensus data
+census2012 <- read.dta13("census2012NL.dta")
+
+# Factor
+census2012$party <- as.factor(census2012$party)
+census2012$age <- as.factor(census2012$age)
+census2012$edu <- as.factor(census2012$edu)
+census2012$sex <- as.factor(census2012$sex)
+
+# Obtain the predictions from model id140
+census2012$cellpredid140 <- invlogit(fixef(mid140)["(Intercept)"]
+                                     +ranef(mid140)$party[as.character(census2012$party),1]
+                                     +ranef(mid140)$age[as.character(census2012$age),1]
+                                     +ranef(mid140)$sex[as.character(census2012$sex),1]
+                                     +ranef(mid140)$edu[as.character(census2012$edu),1]
+)
+
+# Obtain the predictions from model id114
+census2012$cellpredid114 <- invlogit(fixef(mid114)["(Intercept)"]
+                                     +ranef(mid114)$party[as.character(census2012$party),1]
+                                     +ranef(mid114)$age[as.character(census2012$age),1]
+                                     +ranef(mid114)$sex[as.character(census2012$sex),1]
+                                     +ranef(mid114)$edu[as.character(census2012$edu),1]
+)
+
+# Obtain the predictions from model id138
+census2012$cellpredid138<- invlogit(fixef(mid138)["(Intercept)"]
+                                    +ranef(mid138)$party[as.character(census2012$party),1]
+                                    +ranef(mid138)$age[as.character(census2012$age),1]
+                                    +ranef(mid138)$sex[as.character(census2012$sex),1]
+                                    +ranef(mid138)$edu[as.character(census2012$edu),1]
+)
+
+# Obtain the predictions from model id116
+census2012$cellpredid116<- invlogit(fixef(mid116)["(Intercept)"]
+                                    +ranef(mid116)$party[as.character(census2012$party),1]
+                                    +ranef(mid116)$age[as.character(census2012$age),1]
+                                    +ranef(mid116)$sex[as.character(census2012$sex),1]
+                                    +ranef(mid116)$edu[as.character(census2012$edu),1]
+)
+
+# Obtain the predictions from model id321
+census2012$cellpredid321<- invlogit(fixef(mid321)["(Intercept)"]
+                                    +ranef(mid321)$party[as.character(census2012$party),1]
+                                    +ranef(mid321)$age[as.character(census2012$age),1]
+                                    +ranef(mid321)$sex[as.character(census2012$sex),1]
+                                    +ranef(mid321)$edu[as.character(census2012$edu),1]
+)
+
+# Obtain the predictions from model id302
+census2012$cellpredid302<- invlogit(fixef(mid302)["(Intercept)"]
+                                    +ranef(mid302)$party[as.character(census2012$party),1]
+                                    +ranef(mid302)$age[as.character(census2012$age),1]
+                                    +ranef(mid302)$sex[as.character(census2012$sex),1]
+                                    +ranef(mid302)$edu[as.character(census2012$edu),1]
+)
+
+
+# Calculate the weighted prediction          
+census2012$wpredid140<-census2012$share*census2012$cellpredid140
+census2012$wpredid114<-census2012$share*census2012$cellpredid114
+census2012$wpredid138<-census2012$share*census2012$cellpredid138
+census2012$wpredid116<-census2012$share*census2012$cellpredid116
+census2012$wpredid321<-census2012$share*census2012$cellpredid321
+census2012$wpredid302<-census2012$share*census2012$cellpredid302
+
+party <- c(1,2,3,4,5,6,7,8,9,10)
+
+# Get the party predictions
+mrppreddk <- as.vector(tapply(census2012$wpredid140,census2012$party,sum.na))
+id140 <- as.data.frame(mrppreddk)
+
+# Get the party predictions
+mrppreddk <- as.vector(tapply(census2012$wpredid114,census2012$party,sum.na))
+id114 <- as.data.frame(mrppreddk)
+
+# Get the party predictions
+mrppreddk <- as.vector(tapply(census2012$wpredid138,census2012$party,sum.na))
+id138 <- as.data.frame(mrppreddk)
+
+# Get the party predictions
+mrppreddk <- as.vector(tapply(census2012$wpredid116,census2012$party,sum.na))
+id116 <- as.data.frame(mrppreddk)
+
+# Get the party predictions
+mrppreddk <- as.vector(tapply(census2012$wpredid321,census2012$party,sum.na))
+id321 <- as.data.frame(mrppreddk)
+
+# Get the party predictions
+mrppreddk <- as.vector(tapply(census2012$wpredid302,census2012$party,sum.na))
+id302 <- as.data.frame(mrppreddk)
+
+mrpNLdk <- as.data.frame(rbind(id140,id114,id138,id116,id321,id302))
+
+mrpNL <- cbind(mrpNL, mrpNLdk)
+
+######### Merging and cleaning ############
+
+
 # add the variable names and country-level variables
 mrpNL$country <- 'NL'
 colnames(mrpNL)[3] <- 'policyid'
@@ -320,12 +618,62 @@ mrpNL$partyname <- ifelse(mrpNL$party==10,"PvdD",mrpNL$partyname)
 
 save(mrpNL, file="mrpNL.RData")
 
+
+############################################################
+#MERGE AND CLEAN FINAL DATASET
+############################################################
+
 mrpdata <- rbind(mrpNL, mrpDE)
 disaggregation <- read.table("~/Dropbox/VAA/data/disaggregation.csv", header=TRUE, 
                      sep=";")
 data <-cbind(mrpdata, disaggregation)
+data$mrppred <- as.numeric(levels(data$mrppred))[data$mrppred]
 data$id <- NULL
 data$party <- NULL
 data$party2 <- NULL
 
-save(data, file="~/Dropbox/VAA/data/vaadata.RData")
+#calculate the confidence intervals for the MRP (Excluding dk)
+data$mrppredplus95 <- data$mrppred+(qnorm(.975)*(sqrt(data$mrppred*(1-data$mrppred)/data$N)))
+data$mrppredmin95 <- data$mrppred-(qnorm(.975)*(sqrt(data$mrppred*(1-data$mrppred)/data$N)))
+data$mrppredplus90 <- data$mrppred+(qnorm(.95)*(sqrt(data$mrppred*(1-data$mrppred)/data$N)))
+data$mrppredmin90 <- data$mrppred-(qnorm(.95)*(sqrt(data$mrppred*(1-data$mrppred)/data$N)))
+data$mrppredplus50 <- data$mrppred+(qnorm(.75)*(sqrt(data$mrppred*(1-data$mrppred)/data$N)))
+data$mrppredmin50 <- data$mrppred-(qnorm(.75)*(sqrt(data$mrppred*(1-data$mrppred)/data$N)))
+
+#inspect them:
+data.frame(data$mrppred, data$mrppredplus95, data$mrppredmin95, data$mrppredplus90, data$mrppredmin90, data$mrppredplus50, data$mrppredmin50)
+
+#calculate the confidence intervals for the disaggregation (excluding dk)
+data$disaggregationplus95 <- data$disaggregation+(qnorm(.975)*(sqrt(data$disaggregation*(1-data$disaggregation)/data$N)))
+data$disaggregationmin95 <- data$disaggregation-(qnorm(.975)*(sqrt(data$disaggregation*(1-data$disaggregation)/data$N)))
+data$disaggregationplus90 <- data$disaggregation+(qnorm(.95)*(sqrt(data$disaggregation*(1-data$disaggregation)/data$N)))
+data$disaggregationmin90 <- data$disaggregation-(qnorm(.95)*(sqrt(data$disaggregation*(1-data$disaggregation)/data$N)))
+data$disaggregationplus50 <- data$disaggregation+(qnorm(.75)*(sqrt(data$disaggregation*(1-data$disaggregation)/data$N)))
+data$disaggregationmin50 <- data$disaggregation-(qnorm(.75)*(sqrt(data$disaggregation*(1-data$disaggregation)/data$N)))
+
+#inspect:
+data.frame(data$disaggregation, data$disaggregationplus95, data$disaggregationmin95, data$disaggregationplus90, data$disaggregationmin90, data$disaggregationplus50, data$disaggregationmin50)
+
+#Calculate the confidence intervals for the MRP (Including dk)
+data$mrppreddkplus95 <- data$mrppreddk+(qnorm(.975)*(sqrt(data$mrppreddk*(1-data$mrppreddk)/data$Ndk)))
+data$mrppreddkmin95 <- data$mrppreddk-(qnorm(.975)*(sqrt(data$mrppreddk*(1-data$mrppreddk)/data$Ndk)))
+data$mrppreddkplus90 <- data$mrppreddk+(qnorm(.95)*(sqrt(data$mrppreddk*(1-data$mrppreddk)/data$Ndk)))
+data$mrppreddkmin90 <- data$mrppreddk-(qnorm(.95)*(sqrt(data$mrppreddk*(1-data$mrppreddk)/data$Ndk)))
+data$mrppreddkplus50 <- data$mrppreddk+(qnorm(.75)*(sqrt(data$mrppreddk*(1-data$mrppreddk)/data$Ndk)))
+data$mrppreddkmin50 <- data$mrppreddk-(qnorm(.75)*(sqrt(data$mrppreddk*(1-data$mrppreddk)/data$Ndk)))
+
+#inspect:
+data.frame(data$mrppreddk, data$mrppreddkplus95, data$mrppreddkmin95, data$mrppreddkplus90, data$mrppreddkmin90, data$mrppreddkplus50, data$mrppreddkmin50)
+
+#Calculate the confidence intervals for the disggregation (Including dk)
+data$disaggregationdkplus95 <- data$disaggregationdk+(qnorm(.975)*(sqrt(data$disaggregationdk*(1-data$disaggregationdk)/data$Ndk)))
+data$disaggregationdkmin95 <- data$disaggregationdk-(qnorm(.975)*(sqrt(data$disaggregationdk*(1-data$disaggregationdk)/data$Ndk)))
+data$disaggregationdkplus90 <- data$disaggregationdk+(qnorm(.95)*(sqrt(data$disaggregationdk*(1-data$disaggregationdk)/data$Ndk)))
+data$disaggregationdkmin90 <- data$disaggregationdk-(qnorm(.95)*(sqrt(data$disaggregationdk*(1-data$disaggregationdk)/data$Ndk)))
+data$disaggregationdkplus50 <- data$disaggregationdk+(qnorm(.75)*(sqrt(data$disaggregationdk*(1-data$disaggregationdk)/data$Ndk)))
+data$disaggregationdkmin50 <- data$disaggregationdk-(qnorm(.75)*(sqrt(data$disaggregationdk*(1-data$disaggregationdk)/data$Ndk)))
+
+#inspect:
+data.frame(data$disaggregationdk, data$disaggregationdkplus95, data$disaggregationdkmin95, data$disaggregationdkplus90, data$disaggregationdkmin90, data$disaggregationdkplus50, data$disaggregationdkmin50)
+
+write.csv(data,"~/Dropbox/VAA/data/vaadata.csv")
