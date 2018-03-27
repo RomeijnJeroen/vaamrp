@@ -30,7 +30,7 @@ podata$id203 <- ifelse(podata$V203=="eigene W<e4>hrung eher gut", 1,0)
 podata$id250 <- ifelse(podata$V250=="gut", 1,0)
 podata$id205<- ifelse(podata$V205=="T<fc>rkei in EU aufnehmen", 1,0)
 podata$id373 <- ifelse(podata$V373=="sollte Tempolimit geben", 1,0)
-podata$id339 <- ifelse(podata$V339=="sollten Ehepartner gleichgestellt werden", 1,0)
+podata$id339 <- ifelse(podata$V339=="sollten Ehepartner gleichgestellt werden", 0,1)
 
 
 # Factor
@@ -172,7 +172,7 @@ podata$id203 <- ifelse(podata$V203dk== 1, 1,0)
 podata$id250 <- ifelse(podata$V250dk== 1, 1,0)
 podata$id205<- ifelse(podata$V205dk== 1, 1,0)
 podata$id373 <- ifelse(podata$V373dk==1, 1,0)
-podata$id339 <- ifelse(podata$V339dk==1, 1,0)
+podata$id339 <- ifelse(podata$V339dk==2, 1,0)
 
 
 # Factor
